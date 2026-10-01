@@ -170,6 +170,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=ref,event=branch
+            type=raw,value=date-lists-89b22c7,enable=${{ github.event_name == 'workflow_dispatch' }}
             type=raw,value=beta,enable=${{ startsWith(inputs.tag != '' && inputs.tag || github.ref_name, 'v') }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
@@ -197,7 +198,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           context: .
           file: ${{ inputs.dockerfile }}
-          push: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+          push: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |

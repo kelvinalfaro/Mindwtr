@@ -16,7 +16,7 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSo
 import { ErrorBoundary } from '../ErrorBoundary';
 import { shallow, useTaskStore, TaskPriority, TimeEstimate, TIME_ESTIMATE_OPTIONS, buildFocusPools, compareProjectsByOrder, planFocusFilterCriterionRemoval, formatFocusTaskLimitText,
     getFocusStarBlockedText, formatTimeEstimateLabel, generateUUID, getUsedTaskTokens, deriveFocusTaskLists, getProjectDeadlineBoostLabel, getTaskMetadataFilterVisibility, isTaskFutureFocusCandidate, markSavedFilterDeleted, normalizeFocusTaskLimit, resolveFeatureFlags, resolveTaskPerspectiveForFeatures, safeFormatDate, safeParseDate, selectFocusSavedFilters, isDueForReview, shouldShowTaskForStart, splitTodayTasksByStartTime, translateWithFallback, tFallback } from '@mindwtr/core';
-import { DEFAULT_FOCUS_SORT_BY } from '@mindwtr/core';
+import { DEFAULT_FOCUS_SORT_BY, deriveDateLists } from '@mindwtr/core';
 import type { MultiValueFilterMatchMode, SavedFilter, SortField, Task, TaskEnergyLevel } from '@mindwtr/core';
 import { useTaskFilterSelections } from '@mindwtr/core/task-filter-selections';
 import { buildAdvancedChips, buildSelectionChips, type ActiveFilterChipDeps } from './list/active-filter-chips';
@@ -254,7 +254,7 @@ function SavedFocusFilterChip({
     );
 }
 
-function AgendaTaskList({
+export function AgendaTaskList({
     tasks,
     buildFocusToggle,
     getAppearsAtLabel,
@@ -263,7 +263,7 @@ function AgendaTaskList({
     highlightTaskId,
 }: {
     tasks: Task[];
-    buildFocusToggle: (task: Task) => {
+    buildFocusToggle?: (task: Task) => {
         isFocused: boolean;
         canToggle: boolean;
         onToggle: () => void;
@@ -813,14 +813,26 @@ export function AgendaView() {
         projectSections,
     ]);
     const focusedTasks = sections.focusedTasks;
+    const focusDateLists = useMemo(() => {
+        void localDayKey;
+        const classified = deriveDateLists(sections.schedule, new Date());
+        const todayIds = new Set(classified.today.map((task) => task.id));
+        const overdueIds = new Set(classified.overdue.map((task) => task.id));
+        // Keep Focus's own manual/saved sort when placing its schedule rows.
+        return {
+            today: sections.schedule.filter((task) => todayIds.has(task.id)),
+            overdue: sections.schedule.filter((task) => overdueIds.has(task.id)),
+        };
+    }, [localDayKey, sections.schedule]);
+    const [showOverdue, setShowOverdue] = useState(false);
     const nextActionGroups = useMemo(() => (
         groupTasks(effectiveNextGroupBy, { tasks: sections.nextActions, areas, projectMap, t, theme: settings?.theme })
     ), [areas, effectiveNextGroupBy, projectMap, sections.nextActions, settings?.theme, t]);
     const todayTaskGroups = useMemo(() => {
         void futureStartTick;
         void localDayKey;
-        return splitTodayTasksByStartTime(sections.schedule, new Date());
-    }, [futureStartTick, localDayKey, sections.schedule]);
+        return splitTodayTasksByStartTime(focusDateLists.today, new Date());
+    }, [focusDateLists.today, futureStartTick, localDayKey]);
     const orderedTodayTasks = useMemo(() => (
         [...todayTaskGroups.ready, ...todayTaskGroups.laterToday]
     ), [todayTaskGroups]);
@@ -847,7 +859,7 @@ export function AgendaView() {
         getProjectDeadlineBoostLabel(sections.projectDeadlineBoosts.get(taskId), resolveText)
     ), [resolveText, sections.projectDeadlineBoosts]);
     const visibleOtherSectionKeys: FocusSectionKey[] = [];
-    if (sections.schedule.length > 0) visibleOtherSectionKeys.push('schedule');
+    if (focusDateLists.today.length > 0) visibleOtherSectionKeys.push('schedule');
     if (sections.nextActions.length > 0) visibleOtherSectionKeys.push('nextActions');
     if (sections.reviewDue.length > 0) visibleOtherSectionKeys.push('reviewDue');
     if (sections.upcoming.length > 0) visibleOtherSectionKeys.push('upcoming');
@@ -861,6 +873,7 @@ export function AgendaView() {
     const visibleTasks = useMemo(() => {
         const visible = expandedSections.focus ? [...focusedTasks] : [];
         if (expandedSections.schedule) visible.push(...orderedTodayTasks);
+        if (showOverdue) visible.push(...focusDateLists.overdue);
         if (expandedSections.nextActions) visible.push(...visibleNextActions);
         if (expandedSections.reviewDue) visible.push(...sections.reviewDue);
         if (expandedSections.upcoming) visible.push(...sections.upcoming);
@@ -868,7 +881,9 @@ export function AgendaView() {
     }, [
         expandedSections,
         focusedTasks,
+        focusDateLists.overdue,
         orderedTodayTasks,
+        showOverdue,
         sections,
         visibleNextActions,
     ]);
@@ -1202,12 +1217,12 @@ export function AgendaView() {
 
             {/* Other Sections */}
             <div className="space-y-6">
-                {sections.schedule.length > 0 && (
+                {focusDateLists.today.length > 0 && (
                     <AgendaCollapsibleSection
                         title={tFallback(t, 'focus.schedule', t('agenda.dueToday'))}
                         icon={Clock}
                         color="text-warning"
-                        count={sections.schedule.length}
+                        count={focusDateLists.today.length}
                         expanded={expandedSections.schedule}
                         onToggle={() => toggleSection('schedule')}
                         controlsId="agenda-section-schedule"
@@ -1235,6 +1250,25 @@ export function AgendaView() {
                                 />
                             </div>
                         )}
+                    </AgendaCollapsibleSection>
+                )}
+
+                {focusDateLists.overdue.length > 0 && (
+                    <AgendaCollapsibleSection
+                        title={tFallback(t, 'agenda.overdue', 'Overdue')}
+                        icon={Clock}
+                        color="text-warning"
+                        count={focusDateLists.overdue.length}
+                        expanded={showOverdue}
+                        onToggle={() => setShowOverdue((current) => !current)}
+                        controlsId="agenda-section-overdue"
+                    >
+                        <AgendaTaskList
+                            tasks={focusDateLists.overdue}
+                            buildFocusToggle={buildFocusToggle}
+                            showListDetails={showListDetails}
+                            highlightTaskId={highlightTaskId}
+                        />
                     </AgendaCollapsibleSection>
                 )}
 

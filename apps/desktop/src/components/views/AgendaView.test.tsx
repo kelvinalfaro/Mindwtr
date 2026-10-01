@@ -1274,6 +1274,22 @@ describe('AgendaView', () => {
         expect(nextSection!.compareDocumentPosition(reviewSection!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
+    it('keeps overdue tasks available but collapsed below the Today section', () => {
+        vi.useFakeTimers({ now: new Date(2026, 1, 28, 12), toFake: ['Date'] });
+        setAgendaTasks([
+            makeAgendaTask('today-task', 'Due today task', { dueDate: '2026-02-28' }),
+            makeAgendaTask('overdue-task', 'Overdue task', { dueDate: '2026-02-27' }),
+        ]);
+
+        const { getByRole, getByText, queryByText } = renderAgenda();
+        expect(document.getElementById('agenda-section-schedule')).toContainElement(getByText('Due today task'));
+        expect(queryByText('Overdue task')).not.toBeInTheDocument();
+        const overdue = getByRole('button', { name: /Overdue/ });
+        expect(overdue).toHaveAttribute('aria-expanded', 'false');
+        fireEvent.click(overdue);
+        expect(getByText('Overdue task')).toBeInTheDocument();
+    });
+
     it('walks visible Focus tasks in rendered section order', () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date(nowIso));

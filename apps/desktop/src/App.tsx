@@ -13,6 +13,7 @@ const ReviewView = lazy(() => import('./components/views/ReviewView').then((m) =
 import { HistoryView } from './components/views/HistoryView';
 import { TrashView } from './components/views/TrashView';
 import { AgendaView } from './components/views/AgendaView';
+import { DateListView } from './components/views/DateListView';
 import { SearchView } from './components/views/SearchView';
 import {
     ACTIVE_APP_ANNOUNCEMENT,
@@ -1241,6 +1242,12 @@ function App() {
                 return <ListView title={t('list.inbox')} statusFilter="inbox" />;
             case 'agenda':
                 return <AgendaView />;
+            case 'today':
+                return <DateListView period="today" />;
+            case 'tomorrow':
+                return <DateListView period="tomorrow" />;
+            case 'nextSevenDays':
+                return <DateListView period="nextSevenDays" />;
             case 'next':
                 return <ListView title={t('list.next')} statusFilter="next" />;
             case 'someday':

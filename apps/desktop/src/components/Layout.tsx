@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import {
     Calendar,
+    CalendarDays,
+    Sun,
+    Sunrise,
     GanttChartSquare,
     Kanban,
     Tag,
@@ -21,7 +24,7 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { isSandboxMode, shallow, useTaskStore, resolveFeatureFlags, safeFormatDate, tFallback, isAllowedInsecureUrl, formatTaskMovedMessage, isSyncFileLockUnavailableError } from '@mindwtr/core';
+import { deriveDateLists, isSandboxMode, shallow, useTaskStore, resolveFeatureFlags, safeFormatDate, tFallback, isAllowedInsecureUrl, formatTaskMovedMessage, isSyncFileLockUnavailableError } from '@mindwtr/core';
 import type { StoreActionResult, TaskStatus } from '@mindwtr/core';
 import { showUndoToast } from '../lib/undo-registry';
 import { undoTaskCompletion } from '../lib/undo-task-completion';
@@ -31,7 +34,7 @@ import { useObsidianStore } from '../store/obsidian-store';
 import { reportError } from '../lib/report-error';
 import { showSyncErrorToast } from '../lib/sync-error-toast';
 import { ToastHost } from './ToastHost';
-import { areaFilterSelectionToFilters, isTaskVisibleInInbox, resolveAreaFilterSelection, type AreaFilterSelection } from '@mindwtr/core';
+import { areaFilterSelectionToFilters, isTaskVisibleInArea, isTaskVisibleInInbox, resolveAreaFilterSelection, type AreaFilterSelection } from '@mindwtr/core';
 import { SyncService } from '../lib/sync-service';
 import { SidebarAreaFilter } from './ui/SidebarAreaFilter';
 import { getCalendarTaskDragTaskId, hasCalendarTaskDragData } from '../lib/calendar-task-drag';
@@ -39,6 +42,7 @@ import { stageCalendarDropLanding } from '../lib/calendar-view-params';
 import { SandboxBanner } from './sandbox/SandboxBanner';
 import { getWorkspaceCache } from '../lib/workspace-cache';
 import { TASK_STATUS_ICONS } from '../lib/task-status-icons';
+import { useLocalDayKey } from '../hooks/useLocalDayKey';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -295,6 +299,7 @@ export function Layout({
     const dismissLabel = t('common.dismiss');
     const dismissText = dismissLabel && dismissLabel !== 'common.dismiss' ? dismissLabel : 'Dismiss';
     const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
+    const areaById = useMemo(() => new Map(areas.map((area) => [area.id, area])), [areas]);
     const resolvedAreaFilter = useMemo(
         () => resolveAreaFilterSelection(settings?.filters, areas),
         [settings?.filters, areas],
@@ -309,6 +314,12 @@ export function Layout({
         }
         return count;
     }, [tasks, projectMap]);
+    const localDayKey = useLocalDayKey();
+    const dateLists = useMemo(() => deriveDateLists(tasks.filter((task) => isTaskVisibleInArea(task, {
+        projectById: projectMap,
+        areaById,
+        resolvedAreaFilter,
+    })), new Date()), [areaById, localDayKey, projectMap, resolvedAreaFilter, tasks]);
     const wideViews = new Set([
         'inbox',
         'next',
@@ -325,6 +336,9 @@ export function Layout({
         'contexts',
         'search',
         'agenda',
+        'today',
+        'tomorrow',
+        'nextSevenDays',
         'obsidian',
     ]);
     const isWideView = wideViews.has(contentView);
@@ -343,6 +357,9 @@ export function Layout({
             label: tFallback(t, 'nav.sectionFocus', 'Focus'),
             items: [
                 { id: 'agenda', labelKey: 'nav.agenda', icon: Target, tone: 'primary' },
+                { id: 'today', labelKey: 'focus.schedule', fallbackLabel: 'Today', icon: Sun, count: dateLists.today.length, tone: 'primary' },
+                { id: 'tomorrow', labelKey: 'quickDate.tomorrow', fallbackLabel: 'Tomorrow', icon: Sunrise, count: dateLists.tomorrow.length, tone: 'primary' },
+                { id: 'nextSevenDays', labelKey: 'dateLists.nextSevenDays', fallbackLabel: 'Next 7 Days', icon: CalendarDays, count: dateLists.nextSevenDays.length, tone: 'primary' },
                 { id: 'inbox', labelKey: 'nav.inbox', icon: TASK_STATUS_ICONS.inbox, count: inboxCount, tone: 'primary' },
             ],
         },
@@ -397,7 +414,7 @@ export function Layout({
                 return !hiddenSidebarViews.includes(item.id as (typeof hiddenSidebarViews)[number]);
             }),
         }))
-        .filter((section) => section.items.length > 0), [hiddenSidebarViews, inboxCount, isObsidianEnabled, isTimelineEnabled, t]);
+        .filter((section) => section.items.length > 0), [dateLists, hiddenSidebarViews, inboxCount, isObsidianEnabled, isTimelineEnabled, t]);
 
     const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => loadCollapsedSections());
 

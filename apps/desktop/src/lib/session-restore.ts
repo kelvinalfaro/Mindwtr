@@ -11,6 +11,9 @@ const LAST_VIEW_STORAGE_KEY = 'mindwtr-last-view';
 export const RESTORABLE_VIEWS = new Set([
     'inbox',
     'agenda',
+    'today',
+    'tomorrow',
+    'nextSevenDays',
     'next',
     'someday',
     'reference',

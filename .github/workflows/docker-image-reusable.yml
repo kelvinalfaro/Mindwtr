@@ -170,7 +170,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=ref,event=branch
-            type=raw,value=date-lists-89b22c7,enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=raw,value=date-lists-f84c14c,enable=${{ github.event_name == 'workflow_dispatch' }}
             type=raw,value=beta,enable=${{ startsWith(inputs.tag != '' && inputs.tag || github.ref_name, 'v') }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}

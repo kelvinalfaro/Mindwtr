@@ -212,6 +212,8 @@ vi.mock('../contexts/language-context', () => ({
       'tab.next': 'Focus',
       'tab.review': 'Review',
       'common.close': 'Close',
+      'filters.datePreset.today': 'Today',
+      'quickDate.tomorrow': 'Tomorrow',
     }[key] ?? key),
   }),
 }));
@@ -352,6 +354,9 @@ const compactMoreDestinationLabels = [
 ];
 const defaultMoreDestinationLabels = [
   ...compactMoreDestinationLabels,
+  'Today',
+  'Tomorrow',
+  'Next 7 Days',
   'Waiting For',
   'Someday',
   'Projects',
@@ -361,6 +366,9 @@ const defaultMoreDestinationLabels = [
 ];
 const projectsQuickAccessMoreDestinationLabels = [
   ...compactMoreDestinationLabels,
+  'Today',
+  'Tomorrow',
+  'Next 7 Days',
   'Waiting For',
   'Someday',
   'Review',
@@ -823,7 +831,7 @@ describe('mobile tab quick capture', () => {
     expect(getCaptureIconColor(tree)).toBe('#003063');
   });
 
-  it('opens the More sheet with four compact shortcuts and a default 3x2 primary grid', () => {
+  it('opens the More sheet with date lists and the other destinations', () => {
     mockTaskSettings.appearance = { mobileQuickAccessView: 'projects' };
     let tree!: ReturnType<typeof create>;
 
@@ -851,12 +859,16 @@ describe('mobile tab quick capture', () => {
     }));
     expect(flattenStyle(getMoreSheetButtons(tree, 'Trash')[0]?.props.style)).not.toHaveProperty('flexBasis');
 
-    const primaryLabels = ['Waiting For', 'Someday', 'Review', 'Reference', 'Contexts', 'Calendar'];
+    const primaryLabels = ['Today', 'Tomorrow', 'Next 7 Days', 'Waiting For', 'Someday', 'Review', 'Reference', 'Contexts', 'Calendar'];
     expect(primaryLabels.every((label) => (
       flattenStyle(getMoreSheetButtons(tree, label)[0]?.props.style).flexBasis === '31%'
     ))).toBe(true);
     expect(getMoreSheetButtons(tree, 'Contexts')).toHaveLength(1);
     expect(getMoreSheetButtons(tree, 'Reference')).toHaveLength(1);
+    act(() => { getMoreSheetButtons(tree, 'Next 7 Days')[0]?.props.onPress(); });
+    expect(mockRouterPush).toHaveBeenCalledWith('/date-list/nextSevenDays');
+
+    act(() => { getMenuButton(tree).props.onPress(); });
 
     const calendarButtons = getMoreSheetButtons(tree, 'Calendar');
     expect(calendarButtons.length).toBeGreaterThan(0);
@@ -911,6 +923,9 @@ describe('mobile tab quick capture', () => {
       'Board',
       'History',
       'Settings',
+      'Today',
+      'Tomorrow',
+      'Next 7 Days',
       'Waiting For',
       'Someday',
       'Review',

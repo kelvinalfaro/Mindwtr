@@ -37,6 +37,7 @@ import {
   canReorderFocusTasks,
   DEFAULT_FOCUS_SORT_BY,
   deriveFocusTaskLists,
+  deriveDateLists,
   getFocusEmptyState,
   getFocusFilterTokens,
   getFocusGroupByLabel,
@@ -130,6 +131,7 @@ const FOCUS_LIST_BOTTOM_CLEARANCE = 150;
 const DEFAULT_EXPANDED_SECTIONS = {
   focus: true,
   schedule: true,
+  overdue: false,
   next: true,
   upcoming: true,
   reviewDue: true,
@@ -156,7 +158,7 @@ type FocusFilterChip = {
   variant?: 'advanced' | 'excluded';
 };
 
-type FocusSectionType = 'focus' | 'schedule' | 'next' | 'upcoming' | 'reviewDue' | 'reviewProjects';
+type FocusSectionType = 'focus' | 'schedule' | 'overdue' | 'next' | 'upcoming' | 'reviewDue' | 'reviewProjects';
 
 type FocusListItem = FocusSectionListItem | { type: 'project'; project: Project };
 
@@ -194,6 +196,7 @@ const readPersistedFocusExpandedSections = (raw: string | null): Partial<FocusEx
         reviewDue?: unknown;
         reviewProjects?: unknown;
         schedule?: unknown;
+        overdue?: unknown;
         upcoming?: unknown;
       };
     };
@@ -202,6 +205,7 @@ const readPersistedFocusExpandedSections = (raw: string | null): Partial<FocusEx
     const next: Partial<FocusExpandedSections> = {};
     if (typeof persisted.focus === 'boolean') next.focus = persisted.focus;
     if (typeof persisted.schedule === 'boolean') next.schedule = persisted.schedule;
+    if (typeof persisted.overdue === 'boolean') next.overdue = persisted.overdue;
     const nextActionsExpanded = typeof persisted.next === 'boolean'
       ? persisted.next
       : persisted.nextActions;
@@ -230,6 +234,7 @@ const serializeFocusViewState = (expandedSections: FocusExpandedSections, showDe
   expandedSections: {
     focus: expandedSections.focus,
     schedule: expandedSections.schedule,
+    overdue: expandedSections.overdue,
     next: expandedSections.next,
     nextActions: expandedSections.next,
     upcoming: expandedSections.upcoming,
@@ -792,11 +797,21 @@ export default function FocusScreen() {
     }
     return byTaskId;
   }, [futureStartTick, schedule, tc.secondaryText]);
+  const scheduleDateLists = useMemo(() => {
+    void localDayKey;
+    const classified = deriveDateLists(schedule, new Date());
+    const todayIds = new Set(classified.today.map((task) => task.id));
+    const overdueIds = new Set(classified.overdue.map((task) => task.id));
+    return {
+      today: schedule.filter((task) => todayIds.has(task.id)),
+      overdue: schedule.filter((task) => overdueIds.has(task.id)),
+    };
+  }, [localDayKey, schedule]);
   const scheduleByStartTime = useMemo(() => {
     void localDayKey;
     void futureStartTick;
-    return splitTodayTasksByStartTime(schedule, new Date());
-  }, [futureStartTick, localDayKey, schedule]);
+    return splitTodayTasksByStartTime(scheduleDateLists.today, new Date());
+  }, [futureStartTick, localDayKey, scheduleDateLists.today]);
   const reviewDueProjects = useMemo(() => {
     void localDayKey;
     return getReviewDueProjects(visibleProjects, new Date());
@@ -911,7 +926,7 @@ export default function FocusScreen() {
     );
     // Same buckets, order and titles as the widget (@mindwtr/core focus-sections).
     const nextSections: FocusSection[] = buildFocusTaskSections(
-      { focusedTasks, schedule, reviewDue, nextActions, upcoming },
+      { focusedTasks, schedule: scheduleDateLists.today, reviewDue, nextActions, upcoming },
       t,
     ).map((section) => ({
       title: section.title,
@@ -924,6 +939,17 @@ export default function FocusScreen() {
       expanded: expandedSections[section.key],
       type: section.key,
     }));
+
+    const scheduleIndex = nextSections.findIndex((section) => section.type === 'schedule');
+    if (scheduleIndex >= 0 && scheduleDateLists.overdue.length > 0) {
+      nextSections.splice(scheduleIndex + 1, 0, {
+        title: t('agenda.overdue'),
+        data: expandedSections.overdue ? buildTaskItems(scheduleDateLists.overdue) : [],
+        totalCount: scheduleDateLists.overdue.length,
+        expanded: expandedSections.overdue,
+        type: 'overdue',
+      });
+    }
 
     nextSections.push({
       title: t('agenda.reviewDueProjects') ?? 'Projects to review',
@@ -945,7 +971,7 @@ export default function FocusScreen() {
     projects,
     reviewDue,
     reviewDueProjects,
-    schedule,
+    scheduleDateLists,
     scheduleByStartTime,
     t,
     themePreset,
@@ -1121,6 +1147,7 @@ export default function FocusScreen() {
       const next = {
         focus: true,
         schedule: expanded,
+        overdue: expanded,
         next: expanded,
         upcoming: expanded,
         reviewDue: expanded,

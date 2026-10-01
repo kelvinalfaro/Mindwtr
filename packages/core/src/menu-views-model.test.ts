@@ -46,6 +46,17 @@ describe('list views parity with the frozen React Native fixture', () => {
     const expected = (name: string, screen: Parameters<typeof projectObservation>[0]) => (
         fixture.observations[name].map((observation) => projectObservation(screen, observation, t))
     );
+    // The frozen capture predates the three date-list tiles. Preserve its
+    // parity checks for the existing destinations; the tiles have a direct
+    // model assertion below.
+    const projectForFrozenFixture = (screen: Parameters<typeof projectObservation>[0], observation: Record<string, unknown>) => {
+        const projected = projectObservation(screen, observation, t);
+        if (screen !== 'more' || !Array.isArray(projected.primary)) return projected;
+        return {
+            ...projected,
+            primary: projected.primary.filter((item: { id: string }) => !['today', 'tomorrow', 'nextSevenDays'].includes(item.id)),
+        };
+    };
 
     it('was captured from React Native before the screens changed', () => {
         expect(fixture.provenance.capturedAt).toMatch(/^[0-9a-f]{40}$/);
@@ -57,7 +68,7 @@ describe('list views parity with the frozen React Native fixture', () => {
             const recorder = createWriteRecorder();
             await seedMenuViewsStore(fixture, scenario, recorder);
             const observed = await replayMenuViewsScenario({ fixture, scenario, recorder, t });
-            expect(observed.map((observation) => projectObservation(scenario.screen, observation, t)))
+            expect(observed.map((observation) => projectForFrozenFixture(scenario.screen, observation)))
                 .toEqual(expected(scenario.name, scenario.screen));
         });
     }
@@ -78,7 +89,7 @@ describe('list views parity with the frozen React Native fixture', () => {
             expect((await contract.activate({ writeSafetyReady: true })).ok).toBe(true);
             recorder.log.splice(0);
             const observed = await replayMenuViewsScenario({ fixture, scenario, recorder, t, contract });
-            expect(observed.map((observation) => projectObservation(scenario.screen, observation, t)))
+            expect(observed.map((observation) => projectForFrozenFixture(scenario.screen, observation)))
                 .toEqual(expected(scenario.name, scenario.screen));
         });
     }
@@ -103,7 +114,7 @@ describe('list view models', () => {
     it('resolves an unknown quick-access view to Review and gives its tile to Projects', () => {
         expect(resolveMobileQuickAccessView('trash')).toBe('review');
         const menu = buildMoreMenuModel({ quickAccessView: 'calendar', savedSearches: [], t });
-        expect(menu.primary.map((item) => item.id)).toEqual(['waiting', 'someday', 'review', 'reference', 'contexts', 'projects']);
+        expect(menu.primary.map((item) => item.id)).toEqual(['today', 'tomorrow', 'nextSevenDays', 'waiting', 'someday', 'review', 'reference', 'contexts', 'projects']);
     });
 
     it('cycles a token through included, excluded and neutral, and retains a missing selection', () => {

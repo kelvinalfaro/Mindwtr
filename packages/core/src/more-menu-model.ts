@@ -3,6 +3,7 @@
  * labels, icons and routes, and which view the quick-access tab holds.
  */
 import { SETTINGS_MOBILE_QUICK_ACCESS_VIEW_VALUE_SET } from './settings-options';
+import { tFallback } from './i18n';
 import type { MobileQuickAccessView, SavedSearch } from './types';
 
 type Translate = (key: string) => string;
@@ -53,6 +54,9 @@ const ICON_COLORS = {
     trash: '#EF4444',
     settings: '#64748B',
     saved: '#4F8CF7',
+    today: '#F59E0B',
+    tomorrow: '#8B5CF6',
+    nextSevenDays: '#35B8B1',
 };
 
 const QUICK_ACCESS_ROUTES: Record<MobileQuickAccessView, string> = {
@@ -100,6 +104,9 @@ export function buildMoreMenuModel(input: {
             item(search.id, search.name, 'tray.fill', ICON_COLORS.saved, `/saved-search/${search.id}`)
         )),
         primary: [
+            item('today', t('filters.datePreset.today'), 'calendar', ICON_COLORS.today, '/date-list/today'),
+            item('tomorrow', t('quickDate.tomorrow'), 'calendar', ICON_COLORS.tomorrow, '/date-list/tomorrow'),
+            item('nextSevenDays', tFallback(t, 'dateLists.nextSevenDays', 'Next 7 Days'), 'calendar', ICON_COLORS.nextSevenDays, '/date-list/nextSevenDays'),
             item('waiting', t('nav.waiting'), 'pause.circle.fill', ICON_COLORS.waiting, '/waiting'),
             item('someday', t('nav.someday'), 'arrow.up.circle.fill', ICON_COLORS.someday, '/someday', compactSlashLabel(t('nav.someday'))),
             quickAccessTile('review'),

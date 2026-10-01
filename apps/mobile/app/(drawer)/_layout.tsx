@@ -98,6 +98,7 @@ export default function AppLayout() {
       <Stack.Screen name="review" options={{ title: t('nav.review') }} />
       <Stack.Screen name="contexts" options={{ title: t('contexts.title') }} />
       <Stack.Screen name="waiting" options={{ title: t('waiting.title') }} />
+      <Stack.Screen name="date-list/[period]" options={{ title: t('filters.datePreset.today') }} />
       <Stack.Screen name="someday" options={{ title: t('someday.title') }} />
       <Stack.Screen name="reference" options={{ title: t('nav.reference') }} />
       <Stack.Screen name="done" options={{ title: t('nav.done') }} />
